@@ -11,10 +11,10 @@ local browsing = 0
 
 local view = 1
 
-local connections = {
+local io_map = {
   {
-    id = 'A',
-    outputs = {
+    _input = 'A',
+    _outputs = {
       { text = 'A', enabled = 0, data = 102 },
       { text = 'B', enabled = 0, data = 103 },
       { text = 'C', enabled = 0, data = 104 },
@@ -22,8 +22,8 @@ local connections = {
     }
   },
   {
-    id = 'B',
-    outputs = {
+    _input = 'B',
+    _outputs = {
       { text = 'A', enabled = 0, data = 106 },
       { text = 'B', enabled = 0, data = 107 },
       { text = 'C', enabled = 0, data = 108 },
@@ -31,8 +31,8 @@ local connections = {
     }
   },
   {
-    id = 'C',
-    outputs = {
+    _input = 'C',
+    _outputs = {
       { text = 'A', enabled = 0, data = 110 },
       { text = 'B', enabled = 0, data = 111 },
       { text = 'C', enabled = 0, data = 112 },
@@ -40,8 +40,8 @@ local connections = {
     }
   },
   {
-    id = 'D',
-    outputs = {
+    _input = 'D',
+    _outputs = {
       { text = 'A', enabled = 0, data = 114 },
       { text = 'B', enabled = 0, data = 115 },
       { text = 'C', enabled = 0, data = 116 },
@@ -134,8 +134,6 @@ function init()
   redraw()
 end
 
-
-
 function draw_io()
   screen.clear()
   
@@ -146,16 +144,16 @@ function draw_io()
     screen.font_face(8)
     screen.font_size(14)
     
-    for i = 1, #connections do
+    for i = 1, #io_map do
       screen.level(3)
-      screen.text(connections[i].id .. '  ')
+      screen.text(io_map[i]._input .. '  ')
       
-      for j = 1, #connections[i].outputs do
-        local level = connections[i].outputs[j].enabled == 1 and 5 or 1
+      for j = 1, #io_map[i]._outputs do
+        local level = io_map[i]._outputs[j].enabled == 1 and 5 or 1
         level = browsing == 0 and j + 4*(i - 1) == active_output and 15 or level
         
         screen.level(level)
-        screen.text(connections[i].outputs[j].text .. ' ')
+        screen.text(io_map[i]._outputs[j].text .. ' ')
         screen.level(1)
       end
       
@@ -192,8 +190,8 @@ end
 
 function load_preset()
   for i = 1, #presets[active_preset] do 
-    local _input = math.ceil(i/4)
-    connections[_input].outputs[i - 4*(_input - 1)].enabled = presets[active_preset][i]
+    local _in = math.ceil(i/4)
+    io_map[_in]._outputs[i - 4*(_in - 1)].enabled = presets[active_preset][i]
   end
   
   send_all_data()
@@ -207,9 +205,9 @@ end
 
 function send_all_data()
   for i = 1, #presets[active_preset] do
-    local _input = math.ceil(i/4)
-    local _output = connections[_input].outputs[i - 4*(_input - 1)]
-    send_data(_input, _output, _output.enabled)
+    local _in = math.ceil(i/4)
+    local _output = io_map[_in]._outputs[i - 4*(_in - 1)]
+    send_data(_in, _output, _output.enabled)
   end
 end
 
@@ -224,7 +222,7 @@ function key(n,z)
   if n == 2 and z == 0 then
     local active_row = math.ceil(active_output / 4)
     local active_col = active_output - 4*(active_row - 1)
-    local output_active = connections[active_row].outputs[active_col]
+    local output_active = io_map[active_row]._outputs[active_col]
     
     output_active.enabled = output_active.enabled == 0 and 1 or 0
 
@@ -246,6 +244,12 @@ function enc(n,d)
   if n == 2 then
     browsing = 0
     active_output = util.clamp(active_output + d, 1, 16)
+    redraw()
+  end
+  if n == 3 then
+    browsing = 1
+    active_preset = util.clamp(active_preset + d, 1, 9)
+    load_preset()
     redraw()
   end
 end
