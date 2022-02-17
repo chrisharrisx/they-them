@@ -3,14 +3,6 @@
 --        
 --            they/them
 
-local active_preset = 1
-local active_output = 1
-
-local button_state = { 0, 0, 0 }
-local browsing = 0
-
-local view = 1
-
 local io_map = {
   {
     _input = 'A',
@@ -119,11 +111,26 @@ local shift_map = {
   I = 18
 }
 
+local active_preset = 1
+local active_output = 1
+
+local button_state = { 0, 0, 0 }
+local browsing = 0
+local setting_tempo = 0
+
+local view = 1
+
 local m = midi.connect(1)
 local o = midi.connect(2)
 
+local _metro
+local bpm = 120
+local spm = 60
+local run_state = 0
+
 function init()
   local f = io.open(_path.data .. 'they/them/presets.lua', "r")
+  _metro = metro.init(step, spm/bpm)
   
   if f ~= nil then
     io.close(f)
@@ -131,6 +138,16 @@ function init()
     load_preset()
   end
      
+  redraw()
+end
+
+function step()
+  if active_preset < 9 then
+    active_preset = active_preset + 1
+  else
+    active_preset = 1
+  end
+  load_preset()
   redraw()
 end
 
@@ -191,12 +208,10 @@ function load_preset()
     local _in = math.ceil(i/4)
     io_map[_in]._outputs[i - 4*(_in - 1)].enabled = presets[active_preset][i]
   end
-  
   send_all_data()
-  draw_io()
 end
 
-function send_data(_in, _out, state)
+function send_data(_out, state)
   local cc = _out.data
   local value = state == 1 and 1 or 127
 end
@@ -205,7 +220,7 @@ function send_all_data()
   for i = 1, #presets[active_preset] do
     local _in = math.ceil(i/4)
     local _output = io_map[_in]._outputs[i - 4*(_in - 1)]
-    send_data(_in, _output, _output.enabled)
+    send_data(_output, _output.enabled)
   end
 end
 
@@ -214,42 +229,60 @@ function redraw()
   draw_presets()
 end
 
+function enc(n,d)
+  if n == 1 then
+    view = util.clamp(view + d, 1, 2)
+    redraw()
+  end
+  if n == 2 and run_state == 0 then
+    browsing = 0
+    active_output = util.clamp(active_output + d, 1, 16)
+    redraw()
+  end
+  if n == 3 and button_state[3] == 0 then
+    browsing = 1
+    active_preset = util.clamp(active_preset + d, 1, 9)
+    load_preset()
+    redraw()
+  end
+  if n == 3 and button_state[3] == 1 then
+    setting_tempo = 1
+    bpm = util.clamp(bpm + d, 6, 600)
+    _metro.time = spm/bpm
+  end
+end
+
 function key(n,z)
   button_state[n] = z
   
   if n == 2 and z == 0 then
     local _in = math.ceil(active_output / 4)
-    local _out = math.ceil(active_output / 4)
+    local _out = active_output - 4 * (_in - 1)
     local _output = io_map[_in]._outputs[_out]
     
     _output.enabled = _output.enabled == 0 and 1 or 0
 
     presets[active_preset][active_output] = _output.enabled
     save_state()
-    -- send_data(active_row, active_output, output_active.enabled)
-    redraw()
-  end
-  
-  if n == 3 and z == 0 then
-    save_state()
-  end
-end
-
-function enc(n,d)
-  if n == 1 then
-    view = util.clamp(view + d, 1, 2)
-    redraw()
-  end
-  if n == 2 then
-    browsing = 0
-    active_output = util.clamp(active_output + d, 1, 16)
-    redraw()
-  end
-  if n == 3 then
-    browsing = 1
-    active_preset = util.clamp(active_preset + d, 1, 9)
     load_preset()
     redraw()
+    -- send_data(active_row, active_output, output_active.enabled)
+  end
+  
+  if n == 3 and z == 0 and setting_tempo == 0 then
+    if run_state == 0 then
+      _metro:start()
+      run_state = 1
+      browsing = 1
+    else
+      _metro:stop()
+      run_state = 0
+      browsing = 0
+    end
+  end
+  
+  if n == 3 and z == 0 and setting_tempo == 1 then
+    setting_tempo = 0
   end
 end
 
@@ -270,7 +303,7 @@ end
 function Data(d)
   for k, v in pairs(d) do
     for i = 1, #v do
-      presets[tonumber(string.sub(k, 5, 5))][i] = v[i]
+      presets[tonumber(string.sub(k, 7, 7))][i] = v[i]
     end
   end
 end
@@ -281,7 +314,7 @@ function save_state()
   
   io.write('Data{\n')
   for i = 1, #presets do
-    io.write('slot' .. i .. '={')
+    io.write('preset' .. i .. '={')
     for j = 1, #presets[i] do
       io.write(presets[i][j] .. ',')
     end
