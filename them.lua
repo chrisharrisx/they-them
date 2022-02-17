@@ -173,13 +173,11 @@ function draw_presets()
     screen.move(current_x, current_y)
     
     for i = 1,3 do
-  
       for j = 1,3 do
         local preset = j + 3*(i - 1)
         screen.level(preset == active_preset and 15 or 1)
         screen.text(preset .. ' ')
       end
-      
       current_y = current_y + 15
       screen.move(current_x, current_y)
     end
@@ -220,13 +218,14 @@ function key(n,z)
   button_state[n] = z
   
   if n == 2 and z == 0 then
-    local active_row = math.ceil(active_output / 4)
-    local active_col = active_output - 4*(active_row - 1)
-    local output_active = io_map[active_row]._outputs[active_col]
+    local _in = math.ceil(active_output / 4)
+    local _out = math.ceil(active_output / 4)
+    local _output = io_map[_in]._outputs[_out]
     
-    output_active.enabled = output_active.enabled == 0 and 1 or 0
+    _output.enabled = _output.enabled == 0 and 1 or 0
 
-    presets[active_preset][active_col] = output_active.enabled
+    presets[active_preset][active_output] = _output.enabled
+    save_state()
     -- send_data(active_row, active_output, output_active.enabled)
     redraw()
   end
@@ -277,9 +276,6 @@ function Data(d)
 end
 
 function save_state()
-  print('saving state..')
-  saving_state = true
-  
   local file = io.open(_path.data .. 'they/them/presets.lua', 'w+')
   io.output(file)
   
