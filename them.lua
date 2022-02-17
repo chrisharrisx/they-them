@@ -106,6 +106,7 @@ local presets = {
     0, 0, 0, 0,
   }
 }
+
 local shift_map = {
   A = 10,
   B = 11,
@@ -118,16 +119,8 @@ local shift_map = {
   I = 18
 }
 
--- local midi_out1 = midi.connect(1)
 local m = midi.connect(1)
 local o = midi.connect(2)
-local tempo = 0
-
--- m.event = function(data)
---   print('in here')
---   local msg = midi.to_msg(data)
---   print(msg)
--- end
 
 function init()
   local f = io.open(_path.data .. 'they/them/presets.lua', "r")
@@ -136,24 +129,6 @@ function init()
     io.close(f)
     load_state()
     load_preset()
-  end
-  
-  m.event = function(d) 
-    local msg = midi.to_msg(d)
-    
-    if msg.type == "note_on" then
-      o:note_on(msg.note, 127, 1)
-    end
-    
-    if msg.type == "note_off" then
-      o:note_off(msg.note, 127, 1)
-    end
-    
-    tempo = params:get('clock_tempo')
-    print(tempo / 2)
-
-    -- msg.type == 'cc' 
-    -- print(msg.cc, msg.val)
   end
      
   redraw()
@@ -228,8 +203,6 @@ end
 function send_data(_in, _out, state)
   local cc = _out.data
   local value = state == 1 and 1 or 127
-  -- print('sending message ' .. cc .. ' with value ' .. value .. ' from input ' .. connections[_in].id .. ' to output ' .. _out.text)
-  -- midi_out1:cc(cc, value, 1)
 end
 
 function send_all_data()
@@ -273,12 +246,6 @@ function enc(n,d)
   if n == 2 then
     browsing = 0
     active_output = util.clamp(active_output + d, 1, 16)
-    redraw()
-  end
-  if n == 3 then
-    browsing = 1
-    active_preset = util.clamp(active_preset + d, 1, 9)
-    load_preset()
     redraw()
   end
 end
