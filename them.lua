@@ -3,6 +3,9 @@
 --        
 --            they/them
 
+-- TODO:
+-- refactoring screen updating for each draw method
+
 local io_map = {
   {
     _input = 'A',
@@ -141,6 +144,143 @@ function init()
   redraw()
 end
 
+function draw_io()
+  screen.clear()
+  
+  local current_y = 10
+  
+  screen.move(0, current_y)
+  screen.font_face(8)
+  screen.font_size(14)
+  
+  for i = 1, #io_map do
+    screen.level(3)
+    screen.text(io_map[i]._input .. '  ')
+    
+    for j = 1, #io_map[i]._outputs do
+      local level = io_map[i]._outputs[j].enabled == 1 and 5 or 1
+      level = browsing == 0 and j + 4*(i - 1) == active_output and 15 or level
+      
+      screen.level(level)
+      screen.text(io_map[i]._outputs[j].text .. ' ')
+      screen.level(1)
+    end
+    
+    current_y = current_y + 14
+    screen.move(0, current_y)
+  end
+end
+
+function draw_crow()
+  screen.clear()
+  
+  local current_y = 10
+  
+  screen.move(0, current_y)
+  screen.font_face(8)
+  screen.font_size(14)
+  
+  for i = 1,4 do
+    screen.level(3)
+    screen.text(i .. '  ')
+      
+    screen.level(1)
+    screen.text('CV' .. ' ' .. '0.1')
+    
+    current_y = current_y + 14
+    screen.move(0, current_y)
+  end
+end
+
+function draw_presets()
+  local current_x = 76
+  local current_y = 10
+  
+  screen.move(current_x, current_y)
+  
+  for i = 1,3 do
+    for j = 1,3 do
+      local preset = j + 3*(i - 1)
+      screen.level(preset == active_preset and 15 or 1)
+      screen.text(preset .. ' ')
+    end
+    current_y = current_y + 14
+    screen.move(current_x, current_y)
+  end
+end
+
+function draw_playstate()
+  local current_x = 76
+  local current_y = 64
+  
+  screen.move(current_x, current_y)
+  screen.font_face(1)
+  screen.font_size(8)
+  screen.level(1)
+  screen.text(bpm)
+  
+  current_x = current_x + 17
+  screen.move(current_x, current_y)
+  
+  if run_state == 0 then
+    screen.text('||')
+  else
+    screen.text('|')
+    screen.move(current_x, current_y)
+    screen.text('>')
+  end
+  
+  screen.font_face(8)
+  screen.font_size(14)
+  screen.level(1)
+end
+
+function draw_nav()
+  local current_x = 120
+  local current_y = 4
+  
+  screen.move(current_x, current_y)
+  screen.font_face(1)
+  screen.font_size(8)
+  
+  for i = 1, 4 do
+    screen.level(view == i and 15 or 1)
+    screen.text('o')
+    current_y = current_y + 7
+    screen.move(current_x, current_y)
+  end
+  
+  current_x = 1
+  current_y = 64
+  screen.move(current_x, current_y)
+  
+  if view == 1 then
+    screen.text('MIDI')
+  end
+  if view == 2 then
+    screen.text('CROW')
+  end
+  
+  screen.font_face(8)
+  screen.font_size(14)
+  screen.level(1)
+end
+
+function redraw()
+  if view == 1 then
+    draw_io()
+  end
+  if view == 2 then
+    draw_crow()
+  end
+  
+  draw_presets()
+  draw_playstate()
+  draw_nav()
+  
+  screen.update()
+end
+
 function step()
   if active_preset < 9 then
     active_preset = active_preset + 1
@@ -149,58 +289,6 @@ function step()
   end
   load_preset()
   redraw()
-end
-
-function draw_io()
-  screen.clear()
-  
-  if view == 1 then
-    local current_y = 10
-    
-    screen.move(0, current_y)
-    screen.font_face(8)
-    screen.font_size(14)
-    
-    for i = 1, #io_map do
-      screen.level(3)
-      screen.text(io_map[i]._input .. '  ')
-      
-      for j = 1, #io_map[i]._outputs do
-        local level = io_map[i]._outputs[j].enabled == 1 and 5 or 1
-        level = browsing == 0 and j + 4*(i - 1) == active_output and 15 or level
-        
-        screen.level(level)
-        screen.text(io_map[i]._outputs[j].text .. ' ')
-        screen.level(1)
-      end
-      
-      current_y = current_y + 15
-      screen.move(0, current_y)
-    end
-  end
-  
-  screen.update()
-end
-
-function draw_presets()
-  if view == 1 then
-    local current_x = 80
-    local current_y = 10
-    
-    screen.move(current_x, current_y)
-    
-    for i = 1,3 do
-      for j = 1,3 do
-        local preset = j + 3*(i - 1)
-        screen.level(preset == active_preset and 15 or 1)
-        screen.text(preset .. ' ')
-      end
-      current_y = current_y + 15
-      screen.move(current_x, current_y)
-    end
-  end
-  
-  screen.update()
 end
 
 function load_preset()
@@ -224,14 +312,9 @@ function send_all_data()
   end
 end
 
-function redraw()
-  draw_io()
-  draw_presets()
-end
-
 function enc(n,d)
   if n == 1 then
-    view = util.clamp(view + d, 1, 2)
+    view = util.clamp(view + d, 1, 4)
     redraw()
   end
   if n == 2 and run_state == 0 then
@@ -249,6 +332,7 @@ function enc(n,d)
     setting_tempo = 1
     bpm = util.clamp(bpm + d, 6, 600)
     _metro.time = spm/bpm
+    redraw()
   end
 end
 
@@ -277,8 +361,8 @@ function key(n,z)
     else
       _metro:stop()
       run_state = 0
-      browsing = 0
     end
+    redraw()
   end
   
   if n == 3 and z == 0 and setting_tempo == 1 then
