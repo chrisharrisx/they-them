@@ -45,6 +45,37 @@ local io_map = {
   },
 }
 
+local crow_modes = { 
+  'V',    -- constant voltage – voltage, slew
+  'N',    -- note – note number, sustain (bool)
+  'TR',   -- trigger – voltage, unused
+  'ENV',  -- envelope – amplitude, speed (fall)
+  'LFO'   -- lfo – amplitude, speed
+}
+
+local crow_map = {
+  { 
+    mode = 5, 
+    values = { 10.0, 0 },
+    enabled = 0
+  },
+  { 
+    mode = 5, 
+    values = { 10.0, 0 },
+    enabled = 0
+  },
+  { 
+    mode = 5, 
+    values = { 10.0, 0 },
+    enabled = 0
+  },
+  { 
+    mode = 5, 
+    values = { 10.0, 0 },
+    enabled = 0
+  }
+}
+
 local presets = {
   {
     0, 0, 0, 0, 
@@ -116,11 +147,13 @@ local shift_map = {
 
 local active_preset = 1
 local active_output = 1
+local active_crow_output = 1
 
 local button_state = { 0, 0, 0 }
 local browsing = 0
 local setting_tempo = 0
 
+local views = { midi = 1, crow = 2 }
 local view = 1
 
 local m = midi.connect(1)
@@ -180,20 +213,29 @@ function draw_crow()
   screen.font_face(8)
   screen.font_size(14)
   
-  for i = 1,4 do
+  for i = 1, #crow_map do
     screen.level(3)
     screen.text(i .. '  ')
-      
     screen.level(1)
-    screen.text('CV' .. ' ' .. '0.1')
+    screen.text(crow_modes[crow_map[i].mode])
+    current_x = 44
+    screen.move(current_x, current_y)
     
+    for j = 1, #crow_map[i].values do
+      local level = crow_map[i].enabled == 1 and 5 or 1
+      screen.level(active_crow_output == j + 2*(i - 1) and 15 or level)
+      screen.move(current_x, current_y)
+      screen.text(crow_map[i].values[j] .. ' ')
+      current_x = current_x + 33
+    end
+  
     current_y = current_y + 14
     screen.move(0, current_y)
   end
 end
 
 function draw_presets()
-  local current_x = 76
+  local current_x = 95
   local current_y = 10
   
   screen.move(current_x, current_y)
@@ -210,7 +252,7 @@ function draw_presets()
 end
 
 function draw_playstate()
-  local current_x = 76
+  local current_x = 95
   local current_y = 64
   
   screen.move(current_x, current_y)
@@ -235,24 +277,10 @@ function draw_playstate()
   screen.level(1)
 end
 
-function draw_nav()
-  local current_x = 120
-  local current_y = 4
-  
-  screen.move(current_x, current_y)
+function draw_info()
+  screen.move(1, 64)
   screen.font_face(1)
   screen.font_size(8)
-  
-  for i = 1, 4 do
-    screen.level(view == i and 15 or 1)
-    screen.text('o')
-    current_y = current_y + 7
-    screen.move(current_x, current_y)
-  end
-  
-  current_x = 1
-  current_y = 64
-  screen.move(current_x, current_y)
   
   if view == 1 then
     screen.text('MIDI')
@@ -276,7 +304,7 @@ function redraw()
   
   draw_presets()
   draw_playstate()
-  draw_nav()
+  draw_info()
   
   screen.update()
 end
@@ -319,7 +347,11 @@ function enc(n,d)
   end
   if n == 2 and run_state == 0 then
     browsing = 0
-    active_output = util.clamp(active_output + d, 1, 16)
+    if view == views.midi then
+      active_output = util.clamp(active_output + d, 1, 16)
+    elseif view == views.crow then
+      active_crow_output = util.clamp(active_crow_output + d, 1, 12)
+    end
     redraw()
   end
   if n == 3 and button_state[3] == 0 then
