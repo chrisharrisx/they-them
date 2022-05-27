@@ -3,9 +3,6 @@
 --        
 --            they/them
 
--- TODO:
--- refactoring screen updating for each draw method
-
 local io_map = {
   {
     _input = 'A',
@@ -55,23 +52,19 @@ local crow_modes = {
 
 local crow_map = {
   { 
-    mode = 5, 
-    values = { 10.0, 0 },
+    values = { 5, 10, 60 }, -- mode, value1, value2
     enabled = 0
   },
   { 
-    mode = 5, 
-    values = { 10.0, 0 },
+    values = { 5, 10, 60 },
     enabled = 0
   },
   { 
-    mode = 5, 
-    values = { 10.0, 0 },
+    values = { 5, 10, 0 },
     enabled = 0
   },
   { 
-    mode = 5, 
-    values = { 10.0, 0 },
+    values = { 5, 10, 0 },
     enabled = 0
   }
 }
@@ -156,6 +149,8 @@ local setting_tempo = 0
 local views = { midi = 1, crow = 2 }
 local view = 1
 
+local fontsize = { small = 8, large = 14 }
+
 local m = midi.connect(1)
 local o = midi.connect(2)
 
@@ -184,7 +179,7 @@ function draw_io()
   
   screen.move(0, current_y)
   screen.font_face(8)
-  screen.font_size(14)
+  screen.font_size(fontsize.large)
   
   for i = 1, #io_map do
     screen.level(3)
@@ -211,22 +206,25 @@ function draw_crow()
   
   screen.move(0, current_y)
   screen.font_face(8)
-  screen.font_size(14)
+  screen.font_size(fontsize.large)
   
   for i = 1, #crow_map do
+    local level
+    local positions = { 0, 44, 64 }
+    
     screen.level(3)
     screen.text(i .. '  ')
     screen.level(1)
-    screen.text(crow_modes[crow_map[i].mode])
-    current_x = 44
-    screen.move(current_x, current_y)
     
-    for j = 1, #crow_map[i].values do
-      local level = crow_map[i].enabled == 1 and 5 or 1
-      screen.level(active_crow_output == j + 2*(i - 1) and 15 or level)
+    level = crow_map[i].enabled == 1 and 5 or 1
+    screen.level(active_crow_output == 1 + 3*(i - 1) and 15 or level)
+    screen.text(crow_modes[crow_map[i].values[1]])
+    
+    for j = 2, #crow_map[i].values do
+      current_x = positions[j]
       screen.move(current_x, current_y)
-      screen.text(crow_map[i].values[j] .. ' ')
-      current_x = current_x + 33
+      screen.level(active_crow_output == j + 3*(i - 1) and 15 or 1)
+      screen.text(crow_map[i].values[j])
     end
   
     current_y = current_y + 14
@@ -273,7 +271,7 @@ function draw_playstate()
   end
   
   screen.font_face(8)
-  screen.font_size(14)
+  screen.font_size(fontsize.large)
   screen.level(1)
 end
 
@@ -290,7 +288,7 @@ function draw_info()
   end
   
   screen.font_face(8)
-  screen.font_size(14)
+  screen.font_size(fontsize.large)
   screen.level(1)
 end
 
